@@ -11,7 +11,7 @@ export function startBot() {
     return;
   }
 
-  client.once("ready", (c) => onReady(c));
+  client.once("clientReady", (c) => onReady(c));
   client.on("interactionCreate", (i) => onInteractionCreate(i));
   client.on("messageCreate", (m) => onMessageCreate(m));
 
