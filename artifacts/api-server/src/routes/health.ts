@@ -8,4 +8,9 @@ router.get("/healthz", (_req, res) => {
   res.json(data);
 });
 
+// Uptime Robot ping endpoint
+router.get("/ping", (_req, res) => {
+  res.status(200).send("OK");
+});
+
 export default router;
