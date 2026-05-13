@@ -31,6 +31,14 @@ export function startBot() {
     return;
   }
 
+  // Prevent running in two places simultaneously (Replit dev + Render)
+  // Set DISCORD_ENABLED=true on Render only
+  const enabled = process.env["DISCORD_ENABLED"];
+  if (enabled !== undefined && enabled !== "true") {
+    logger.warn("DISCORD_ENABLED is not 'true' — bot will not start (set DISCORD_ENABLED=true on Render)");
+    return;
+  }
+
   // Register listeners only once
   client.once("clientReady", (c) => {
     readyFired = true;
