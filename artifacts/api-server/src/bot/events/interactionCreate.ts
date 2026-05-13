@@ -23,6 +23,7 @@ import {
   handleTicketCreate,
   handleTicketClose,
 } from "../handlers/tickets.js";
+import { handleJoin, handleLeave } from "../handlers/music.js";
 import { logger } from "../../lib/logger.js";
 
 const SERVER_INVITE = "https://discord.gg/UxPfaB5RJ";
@@ -76,6 +77,12 @@ async function handleSlashCommand(interaction: ChatInputCommandInteraction) {
       break;
     case "invite":
       await handleInvite(interaction);
+      break;
+    case "join":
+      await handleJoin(interaction);
+      break;
+    case "leave":
+      await handleLeave(interaction);
       break;
     default:
       break;

@@ -1,6 +1,7 @@
 import {
   SlashCommandBuilder,
   PermissionFlagsBits,
+  ChannelType,
 } from "discord.js";
 
 export const commandDefinitions = [
@@ -120,6 +121,27 @@ export const commandDefinitions = [
   new SlashCommandBuilder()
     .setName("invite")
     .setDescription("احصل على رابط الانضمام للسيرفر"),
+
+  new SlashCommandBuilder()
+    .setName("join")
+    .setDescription("يدخل قناة صوتية ويشغل أغنية")
+    .addChannelOption((o) =>
+      o
+        .setName("channel")
+        .setDescription("القناة الصوتية")
+        .setRequired(true)
+        .addChannelTypes(ChannelType.GuildVoice)
+    )
+    .addStringOption((o) =>
+      o
+        .setName("song")
+        .setDescription("اسم الأغنية أو الفنان")
+        .setRequired(true)
+    ),
+
+  new SlashCommandBuilder()
+    .setName("leave")
+    .setDescription("يخرج من القناة الصوتية ويوقف التشغيل"),
 
   new SlashCommandBuilder()
     .setName("warn")
