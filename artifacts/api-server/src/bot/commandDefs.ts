@@ -140,6 +140,24 @@ export const commandDefinitions = [
     ),
 
   new SlashCommandBuilder()
+    .setName("play")
+    .setDescription("يضيف أغنية لقائمة التشغيل")
+    .addStringOption((o) =>
+      o
+        .setName("song")
+        .setDescription("اسم الأغنية أو الفنان")
+        .setRequired(true)
+    ),
+
+  new SlashCommandBuilder()
+    .setName("skip")
+    .setDescription("يتخطى الأغنية الحالية ويشغل التالية"),
+
+  new SlashCommandBuilder()
+    .setName("queue")
+    .setDescription("يعرض قائمة التشغيل الحالية"),
+
+  new SlashCommandBuilder()
     .setName("leave")
     .setDescription("يخرج من القناة الصوتية ويوقف التشغيل"),
 
