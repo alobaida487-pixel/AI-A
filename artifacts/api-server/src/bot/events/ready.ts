@@ -5,7 +5,10 @@ import { logger } from "../../lib/logger.js";
 export async function onReady(client: Client<true>) {
   logger.info({ tag: client.user.tag }, "Discord bot is ready");
 
-  client.user.setActivity("السيرفر 👀", { type: ActivityType.Watching });
+  client.user.setActivity("GRoupLost", {
+    type: ActivityType.Streaming,
+    url: "https://www.twitch.tv/grouplost",
+  });
 
   const token = process.env["DISCORD_TOKEN"]!;
   // Extract client ID from token (first segment is base64-encoded client ID)

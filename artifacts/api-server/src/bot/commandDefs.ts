@@ -118,6 +118,10 @@ export const commandDefinitions = [
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageChannels),
 
   new SlashCommandBuilder()
+    .setName("invite")
+    .setDescription("احصل على رابط الانضمام للسيرفر"),
+
+  new SlashCommandBuilder()
     .setName("warn")
     .setDescription("تحذير عضو")
     .setDefaultMemberPermissions(PermissionFlagsBits.ModerateMembers)

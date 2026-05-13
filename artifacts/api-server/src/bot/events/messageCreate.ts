@@ -1,11 +1,16 @@
 import {
   Message,
   EmbedBuilder,
+  ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle,
   PermissionFlagsBits,
   GuildMember,
   TextChannel,
 } from "discord.js";
 import { logger } from "../../lib/logger.js";
+
+const SERVER_INVITE = "https://discord.gg/UxPfaB5RJ";
 
 const PREFIX = "?";
 const COLOR_SUCCESS = 0x2ecc71;
@@ -212,11 +217,20 @@ async function prefixHelp(message: Message) {
           "`/broadcast` — رسالة لجميع الأعضاء",
           "`/ticket-panel` — إنشاء لوحة التكت",
           "`/close-ticket` — إغلاق التكت",
+          "`/invite` — رابط الانضمام للسيرفر",
         ].join("\n"),
       }
     )
-    .setFooter({ text: "بوت إداري متكامل" })
+    .setFooter({ text: "GRoupLost • بوت إداري متكامل" })
     .setTimestamp();
 
-  await message.reply({ embeds: [embed] });
+  const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
+    new ButtonBuilder()
+      .setLabel("انضم لسيرفر GRoupLost")
+      .setStyle(ButtonStyle.Link)
+      .setURL(SERVER_INVITE)
+      .setEmoji("🎮")
+  );
+
+  await message.reply({ embeds: [embed], components: [row] });
 }

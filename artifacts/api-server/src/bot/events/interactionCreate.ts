@@ -2,6 +2,10 @@ import {
   Interaction,
   ChatInputCommandInteraction,
   ButtonInteraction,
+  EmbedBuilder,
+  ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle,
 } from "discord.js";
 import {
   handleBan,
@@ -20,6 +24,8 @@ import {
   handleTicketClose,
 } from "../handlers/tickets.js";
 import { logger } from "../../lib/logger.js";
+
+const SERVER_INVITE = "https://discord.gg/UxPfaB5RJ";
 
 export async function onInteractionCreate(interaction: Interaction) {
   try {
@@ -68,9 +74,30 @@ async function handleSlashCommand(interaction: ChatInputCommandInteraction) {
     case "close-ticket":
       await handleTicketClose(interaction);
       break;
+    case "invite":
+      await handleInvite(interaction);
+      break;
     default:
       break;
   }
+}
+
+async function handleInvite(interaction: ChatInputCommandInteraction) {
+  const embed = new EmbedBuilder()
+    .setColor(0x5865f2)
+    .setTitle("🔗 انضم لسيرفر GRoupLost")
+    .setDescription(`اضغط الزر أدناه للانضمام للسيرفر!`)
+    .setTimestamp();
+
+  const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
+    new ButtonBuilder()
+      .setLabel("انضم للسيرفر")
+      .setStyle(ButtonStyle.Link)
+      .setURL(SERVER_INVITE)
+      .setEmoji("🎮")
+  );
+
+  await interaction.reply({ embeds: [embed], components: [row] });
 }
 
 async function handleButton(interaction: ButtonInteraction) {
