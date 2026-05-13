@@ -124,19 +124,13 @@ export const commandDefinitions = [
 
   new SlashCommandBuilder()
     .setName("join")
-    .setDescription("يدخل قناة صوتية ويشغل أغنية")
+    .setDescription("يدخل قناة صوتية")
     .addChannelOption((o) =>
       o
         .setName("channel")
         .setDescription("القناة الصوتية")
         .setRequired(true)
         .addChannelTypes(ChannelType.GuildVoice)
-    )
-    .addStringOption((o) =>
-      o
-        .setName("song")
-        .setDescription("اسم الأغنية أو الفنان (اختياري)")
-        .setRequired(false)
     ),
 
   new SlashCommandBuilder()

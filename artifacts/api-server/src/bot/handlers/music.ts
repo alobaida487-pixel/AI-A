@@ -128,14 +128,13 @@ async function resolveVoiceChannel(
   return null;
 }
 
-// /join — join a channel with optional song
+// /join — join a voice channel only
 export async function handleJoin(interaction: ChatInputCommandInteraction) {
   if (!interaction.guildId || !interaction.guild) {
     return interaction.reply({ content: "❌ هذا الأمر يعمل داخل السيرفر فقط", ephemeral: true });
   }
 
   const channelOption = interaction.options.getChannel("channel", true);
-  const songName = interaction.options.getString("song");
 
   if (channelOption.type !== ChannelType.GuildVoice) {
     return interaction.reply({ content: "❌ اختر قناة صوتية", ephemeral: true });
@@ -151,20 +150,16 @@ export async function handleJoin(interaction: ChatInputCommandInteraction) {
     }
     await entersState(state.connection, VoiceConnectionStatus.Ready, 10_000);
 
-    if (!songName) {
-      return interaction.editReply({
-        embeds: [
-          new EmbedBuilder()
-            .setColor(COLOR_INFO)
-            .setTitle("🔊 تم الانضمام")
-            .setDescription(`انضممت إلى **${voiceChannel.name}**\nاستخدم \`/play song:اسم الأغنية\` لتشغيل أغنية`)
-            .setFooter({ text: "/leave للخروج" })
-            .setTimestamp(),
-        ],
-      });
-    }
-
-    return await addToQueue(interaction, state, songName, voiceChannel.name, true);
+    await interaction.editReply({
+      embeds: [
+        new EmbedBuilder()
+          .setColor(COLOR_INFO)
+          .setTitle("🔊 تم الانضمام")
+          .setDescription(`انضممت إلى **${voiceChannel.name}**`)
+          .setFooter({ text: "/play لتشغيل أغنية • /leave للخروج" })
+          .setTimestamp(),
+      ],
+    });
   } catch (err) {
     logger.error({ err }, "handleJoin error");
     await interaction.editReply({
