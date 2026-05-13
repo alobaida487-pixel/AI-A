@@ -2,7 +2,6 @@ import {
   joinVoiceChannel,
   createAudioPlayer,
   createAudioResource,
-  AudioPlayerStatus,
   VoiceConnectionStatus,
   entersState,
   StreamType,
@@ -21,6 +20,7 @@ import { logger } from "../../lib/logger.js";
 
 const COLOR_SUCCESS = 0x2ecc71;
 const COLOR_ERROR = 0xe74c3c;
+const COLOR_INFO = 0x5865f2;
 
 interface MusicState {
   connection: VoiceConnection;
@@ -29,13 +29,36 @@ interface MusicState {
 
 const musicStates = new Map<string, MusicState>();
 
+function getOrCreateState(guildId: string, voiceChannel: VoiceChannel, guild: NonNullable<ChatInputCommandInteraction["guild"]>): MusicState {
+  const existing = musicStates.get(guildId);
+  if (existing) return existing;
+
+  const connection = joinVoiceChannel({
+    channelId: voiceChannel.id,
+    guildId,
+    adapterCreator: guild.voiceAdapterCreator,
+  });
+
+  const player = createAudioPlayer();
+  connection.subscribe(player);
+
+  connection.on(VoiceConnectionStatus.Disconnected, () => {
+    musicStates.delete(guildId);
+    logger.info({ guildId }, "Voice connection disconnected");
+  });
+
+  const state: MusicState = { connection, player };
+  musicStates.set(guildId, state);
+  return state;
+}
+
 export async function handleJoin(interaction: ChatInputCommandInteraction) {
   if (!interaction.guildId || !interaction.guild) {
     return interaction.reply({ content: "❌ هذا الأمر يعمل داخل السيرفر فقط", ephemeral: true });
   }
 
   const channelOption = interaction.options.getChannel("channel", true);
-  const songName = interaction.options.getString("song", true);
+  const songName = interaction.options.getString("song"); // optional
 
   if (channelOption.type !== ChannelType.GuildVoice) {
     return interaction.reply({ content: "❌ اختر قناة صوتية", ephemeral: true });
@@ -46,6 +69,25 @@ export async function handleJoin(interaction: ChatInputCommandInteraction) {
   await interaction.deferReply();
 
   try {
+    // Get or create voice connection (don't destroy existing one)
+    const state = getOrCreateState(interaction.guildId, voiceChannel, interaction.guild);
+
+    await entersState(state.connection, VoiceConnectionStatus.Ready, 10_000);
+
+    // If no song provided, just join the channel
+    if (!songName) {
+      return interaction.editReply({
+        embeds: [
+          new EmbedBuilder()
+            .setColor(COLOR_INFO)
+            .setTitle("🔊 تم الانضمام")
+            .setDescription(`انضممت إلى **${voiceChannel.name}**\nاستخدم \`/join channel:#${voiceChannel.name} song:اسم الأغنية\` لتشغيل أغنية`)
+            .setFooter({ text: "/leave للخروج" })
+            .setTimestamp(),
+        ],
+      });
+    }
+
     // Search YouTube for the song
     const result = await YouTube.searchOne(songName);
     if (!result || !result.url) {
@@ -53,27 +95,10 @@ export async function handleJoin(interaction: ChatInputCommandInteraction) {
         embeds: [
           new EmbedBuilder()
             .setColor(COLOR_ERROR)
-            .setDescription(`❌ لم أجد الأغنية: **${songName}**، جرب اسم مختلف`),
+            .setDescription(`❌ لم أجد نتائج لـ: **${songName}**، جرب اسم مختلف`),
         ],
       });
     }
-
-    // Destroy any existing connection in this guild
-    const existing = musicStates.get(interaction.guildId);
-    if (existing) {
-      existing.player.stop();
-      existing.connection.destroy();
-      musicStates.delete(interaction.guildId);
-    }
-
-    // Join the voice channel
-    const connection = joinVoiceChannel({
-      channelId: voiceChannel.id,
-      guildId: interaction.guildId,
-      adapterCreator: interaction.guild.voiceAdapterCreator,
-    });
-
-    await entersState(connection, VoiceConnectionStatus.Ready, 10_000);
 
     // Stream audio from YouTube
     const stream = ytdl(result.url, {
@@ -86,27 +111,11 @@ export async function handleJoin(interaction: ChatInputCommandInteraction) {
       inputType: StreamType.Arbitrary,
     });
 
-    const player = createAudioPlayer();
-    connection.subscribe(player);
-    player.play(resource);
+    state.player.play(resource);
 
-    musicStates.set(interaction.guildId, { connection, player });
-
-    // Auto-disconnect when song ends
-    player.on(AudioPlayerStatus.Idle, () => {
-      connection.destroy();
-      musicStates.delete(interaction.guildId!);
-      logger.info({ guildId: interaction.guildId }, "Music finished, disconnected");
-    });
-
-    player.on("error", (err) => {
+    // Log error but DON'T disconnect — only /leave disconnects
+    state.player.on("error", (err) => {
       logger.error({ err }, "Audio player error");
-      connection.destroy();
-      musicStates.delete(interaction.guildId!);
-    });
-
-    connection.on(VoiceConnectionStatus.Disconnected, async () => {
-      musicStates.delete(interaction.guildId!);
     });
 
     const duration = result.duration
@@ -125,22 +134,17 @@ export async function handleJoin(interaction: ChatInputCommandInteraction) {
             { name: "🔊 القناة الصوتية", value: voiceChannel.name, inline: true }
           )
           .setThumbnail(result.thumbnail?.url ?? null)
-          .setFooter({ text: "البحث عبر YouTube • /leave للإيقاف" })
+          .setFooter({ text: "البحث عبر YouTube • /leave للخروج" })
           .setTimestamp(),
       ],
     });
   } catch (err) {
     logger.error({ err }, "handleJoin error");
-    const existing = musicStates.get(interaction.guildId);
-    if (existing) {
-      existing.connection.destroy();
-      musicStates.delete(interaction.guildId);
-    }
     await interaction.editReply({
       embeds: [
         new EmbedBuilder()
           .setColor(COLOR_ERROR)
-          .setDescription("❌ حدث خطأ أثناء تشغيل الأغنية، حاول مرة أخرى"),
+          .setDescription("❌ حدث خطأ، تأكد إن البوت عنده صلاحية الدخول للقناة وحاول مرة أخرى"),
       ],
     });
   }
@@ -171,7 +175,7 @@ export async function handleLeave(interaction: ChatInputCommandInteraction) {
     embeds: [
       new EmbedBuilder()
         .setColor(COLOR_SUCCESS)
-        .setDescription("👋 تم الخروج من القناة الصوتية وإيقاف التشغيل"),
+        .setDescription("👋 تم الخروج من القناة الصوتية"),
     ],
   });
 }

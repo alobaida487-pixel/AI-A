@@ -135,8 +135,8 @@ export const commandDefinitions = [
     .addStringOption((o) =>
       o
         .setName("song")
-        .setDescription("اسم الأغنية أو الفنان")
-        .setRequired(true)
+        .setDescription("اسم الأغنية أو الفنان (اختياري)")
+        .setRequired(false)
     ),
 
   new SlashCommandBuilder()
