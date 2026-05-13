@@ -1,4 +1,5 @@
 import { Router, type IRouter } from "express";
+import { ensureConnected } from "../bot/start.js";
 
 const router: IRouter = Router();
 
@@ -7,8 +8,10 @@ router.get("/healthz", (_req, res) => {
   res.json({ status: "ok" });
 });
 
-// Simple ping for Uptime Robot
+// Uptime Robot pings this — also triggers Discord reconnect if needed
 router.get("/ping", (_req, res) => {
+  // Fire-and-forget reconnect check on every ping (handles Render wake-up)
+  ensureConnected().catch(() => {});
   res.setHeader("Content-Type", "text/plain");
   res.status(200).end("OK");
 });

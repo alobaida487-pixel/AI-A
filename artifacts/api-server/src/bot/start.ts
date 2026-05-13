@@ -4,16 +4,46 @@ import { onInteractionCreate } from "./events/interactionCreate.js";
 import { onMessageCreate } from "./events/messageCreate.js";
 import { logger } from "../lib/logger.js";
 
-const RECONNECT_INTERVAL_MS = 30_000; // check every 30s
+let token: string | null = null;
+let isLoggingIn = false;
+let readyFired = false;
+
+export async function ensureConnected(): Promise<void> {
+  if (!token) return;
+  if (client.isReady()) return;
+  if (isLoggingIn) return;
+
+  isLoggingIn = true;
+  logger.warn("ensureConnected: client not ready — re-logging in");
+  try {
+    await client.login(token);
+  } catch (err) {
+    logger.error({ err }, "Re-login failed");
+  } finally {
+    isLoggingIn = false;
+  }
+}
 
 export function startBot() {
-  const token = process.env["DISCORD_TOKEN"];
+  token = process.env["DISCORD_TOKEN"] ?? null;
   if (!token) {
     logger.warn("DISCORD_TOKEN not set — bot will not start");
     return;
   }
 
-  client.once("clientReady", (c) => onReady(c));
+  // Register listeners only once
+  client.once("clientReady", (c) => {
+    readyFired = true;
+    onReady(c);
+  });
+
+  // Re-register on every reconnect so commands keep working
+  client.on("clientReady", (c) => {
+    if (!readyFired) return; // skip the first (handled by once above)
+    logger.info({ tag: c.user.tag }, "Bot reconnected and ready");
+    onReady(c).catch((err) => logger.error({ err }, "onReady error after reconnect"));
+  });
+
   client.on("interactionCreate", (i) => onInteractionCreate(i));
   client.on("messageCreate", (m) => onMessageCreate(m));
 
@@ -21,33 +51,26 @@ export function startBot() {
   client.on("warn", (msg) => logger.warn({ msg }, "Discord client warning"));
 
   client.on("shardDisconnect", (event, shardId) => {
-    logger.warn({ code: event.code, shardId }, "Shard disconnected — will attempt reconnect");
+    logger.warn({ code: event.code, shardId }, "Shard disconnected");
+    // Reconnect immediately (small delay to respect rate limits)
+    setTimeout(() => ensureConnected().catch(() => {}), 5_000);
   });
 
-  client.on("shardReconnecting", (shardId) => {
-    logger.info({ shardId }, "Shard reconnecting…");
-  });
+  client.on("shardReconnecting", (shardId) =>
+    logger.info({ shardId }, "Shard reconnecting…")
+  );
 
-  client.on("shardResume", (shardId, replayed) => {
-    logger.info({ shardId, replayed }, "Shard resumed");
-  });
+  client.on("shardResume", (shardId, replayed) =>
+    logger.info({ shardId, replayed }, "Shard resumed ✓")
+  );
 
-  async function login() {
-    try {
-      await client.login(token);
-    } catch (err) {
-      logger.error({ err }, "Failed to login to Discord — retrying in 30s");
-      setTimeout(login, RECONNECT_INTERVAL_MS);
-    }
-  }
-
-  // Periodic watchdog: if the client is not ready, re-login
+  // Watchdog every 15 seconds
   setInterval(() => {
-    if (!client.isReady()) {
-      logger.warn("Watchdog: client not ready — attempting re-login");
-      login().catch(() => {});
-    }
-  }, RECONNECT_INTERVAL_MS);
+    ensureConnected().catch(() => {});
+  }, 15_000);
 
-  login();
+  // Initial login
+  client.login(token).catch((err) => {
+    logger.error({ err }, "Initial login failed — watchdog will retry");
+  });
 }
