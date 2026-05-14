@@ -1,6 +1,27 @@
-import { Client, ActivityType, REST, Routes } from "discord.js";
+import { Client, ActivityType, REST, Routes, Guild } from "discord.js";
 import { commandDefinitions } from "../commandDefs.js";
 import { logger } from "../../lib/logger.js";
+
+const commandsJSON = commandDefinitions.map((c) => c.toJSON());
+
+export function getRestAndClientId() {
+  const token = process.env["DISCORD_TOKEN"]!;
+  const clientId = Buffer.from(token.split(".")[0], "base64").toString("ascii");
+  const rest = new REST({ version: "10" }).setToken(token);
+  return { rest, clientId };
+}
+
+export async function registerCommandsForGuild(guildId: string) {
+  try {
+    const { rest, clientId } = getRestAndClientId();
+    await rest.put(Routes.applicationGuildCommands(clientId, guildId), {
+      body: commandsJSON,
+    });
+    logger.info({ guildId }, "Slash commands registered for guild");
+  } catch (err) {
+    logger.error({ err, guildId }, "Failed to register slash commands for guild");
+  }
+}
 
 export async function onReady(client: Client<true>) {
   logger.info({ tag: client.user.tag }, "Discord bot is ready");
@@ -10,23 +31,13 @@ export async function onReady(client: Client<true>) {
     url: "https://www.twitch.tv/grouplost",
   });
 
-  const token = process.env["DISCORD_TOKEN"]!;
-  // Extract client ID from token (first segment is base64-encoded client ID)
-  const clientId = Buffer.from(token.split(".")[0], "base64").toString("ascii");
-
-  const rest = new REST({ version: "10" }).setToken(token);
-  const commandsJSON = commandDefinitions.map((c) => c.toJSON());
-
-  try {
-    // Register to all guilds the bot is in for instant deployment
-    const guilds = client.guilds.cache;
-    for (const [guildId] of guilds) {
-      await rest.put(Routes.applicationGuildCommands(clientId, guildId), {
-        body: commandsJSON,
-      });
-      logger.info({ guildId }, "Slash commands registered for guild");
-    }
-  } catch (err) {
-    logger.error({ err }, "Failed to register slash commands");
+  // Register commands in all current guilds
+  for (const [guildId] of client.guilds.cache) {
+    await registerCommandsForGuild(guildId);
   }
+}
+
+export async function onGuildCreate(guild: Guild) {
+  logger.info({ guildId: guild.id, guildName: guild.name }, "Bot joined new guild — registering commands");
+  await registerCommandsForGuild(guild.id);
 }
